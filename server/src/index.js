@@ -20,9 +20,43 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+// Setup CORS origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://fitnessh-ub.netlify.app"
+];
+
+// Add CLIENT_URL from environment variables if specified (supports comma-separated origins)
+if (process.env.CLIENT_URL) {
+  const envOrigins = process.env.CLIENT_URL.split(",").map(url => url.trim());
+  envOrigins.forEach(url => {
+    if (url && !allowedOrigins.includes(url)) {
+      allowedOrigins.push(url);
+    }
+  });
+}
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin) return callback(null, true);
+      
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      const isAllowed = allowedOrigins.some(allowed => {
+        return allowed.replace(/\/$/, "") === normalizedOrigin;
+      });
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true
+  })
+);
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
